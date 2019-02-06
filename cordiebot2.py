@@ -2,8 +2,14 @@
 #
 #  The CordieBot gets a new brain, using a Raspberry Pi instead of an Arduino.
 #
-#  Benefits:  Can do time and date
-#             Can receive info over WIFI
+#  Benefits:  Can receive info over WIFI
+#
+#  Actions:     States time and date (switch pressed 1 time)
+#               Retrieves and states current weather conditions (switch pressed 2 times)
+#               Retrieves and states quote of the day from BrainyQuote.com (switch
+#                   pressed 3 times)
+#               Shuts down the system so it can be safely powered off (switch press
+#                   for more than 5 seconds)
 #
 #  Author: Hal Breidenbach
 import board
@@ -28,37 +34,6 @@ spi = busio.SPI(board.SCLK, board.MOSI, board.MISO)  # from blinkateest
 leds = adafruit_tlc59711.TLC59711(spi)
 
 
-'''
-{'base': 'stations',
- 'dt': 1548882960,
- 'clouds': {'all': 1},
- 'wind': {'speed': 10.3,
-    'deg': 210,
-    'gust': 13.9},
- 'visibility': 16093,
- 'name': 'Ann Arbor',
- 'cod': 200,
- 'weather': [{'icon': '50d',
-    'id': 721,
-    'description': 'haze',
-    'main': 'Haze'}],
- 'sys': {'sunrise': 1548852594,
-    'country': 'US',
-    'id': 3313,
-    'message': 0.0044,
-    'type': 1,
-    'sunset': 1548888459},
- 'id': 420018002,
- 'coord': {'lat': 42.31,
-    'lon': -83.78},
- 'main': {'pressure': 1020,
-    'temp_max': 253.75,
-    'temp_min': 249.25,
-    'temp': 251.64,
-    'humidity': 51}}
-
-'''
-
 ##################################################################################
 #
 #     "Constants"
@@ -66,6 +41,8 @@ leds = adafruit_tlc59711.TLC59711(spi)
 ##################################################################################
 
 debug = True  # to print various details
+debugLights = False   # help debugging light show
+debugTalk = False  # help debug speaking
 
 button = 25  # GPIO number of touch sensor
 # LED board uses SPIMOSI and SPISCLK
@@ -119,21 +96,24 @@ class Lamp:
         self.b = 0
         self.send()
     def set(self, inr, ing, inb):
-        print ("set led = ", self.lightChannel, "  settings= ",
+        if debugLights:
+            print ("set led = ", self.lightChannel, "  settings= ",
                         self.r, self.g, self.b, "  vals=", inr, ing, inb)
         self.r = inr   # r, g, and b values should be sent as 1/2 the desired brightness
         self.g = ing
         self.b = inb
         self.send()
     def update(self, inr, ing, inb):
-        print ("update led = ", self.lightChannel, "  settings= ",
+        if debugLights:
+            print ("update led = ", self.lightChannel, "  settings= ",
                         self.r, self.g, self.b, "  vals=", inr, ing, inb)
         self.r += inr
         self.g += ing
         self.b += inb
         self.send()
     def fadeOut(self, inr, ing, inb):
-        print ("fadeOut led = ", self.lightChannel, "  settings= ",
+        if debugLights:
+            print ("fadeOut led = ", self.lightChannel, "  settings= ",
                         self.r, self.g, self.b, "  vals=", inr, ing, inb)
         self.r = self.r - inr
         self.g = self.g - ing
@@ -188,7 +168,7 @@ def lightShow(count):
             headLight.update(headDeltas[0], headDeltas[1], headDeltas[2])
             brainLight.update(brainDeltas[0], brainDeltas[1], brainDeltas[2])
             time.sleep(rampDelay)
-            if debug and (x %10 == 0):
+            if debugLights and (x %10 == 0):
                 print (x)
         headDeltas[0] = headLight.rvalues()
         headDeltas[1] = headLight.gvalues()
@@ -201,13 +181,13 @@ def lightShow(count):
         ndx += 1
     headDeltas[:] = [-1*x/rampVal for x in headDeltas]
     brainDeltas[:] = [-1*x/rampVal for x in brainDeltas]
-    if debug:
+    if debugLights:
         print ("after get increments  Head Deltas = ", headDeltas, "  Brain Deltas = ", brainDeltas)    
     for x in range(rampVal):
         headLight.update(headDeltas[0], headDeltas[1], headDeltas[2])
         brainLight.update(brainDeltas[0], brainDeltas[1], brainDeltas[2])
         time.sleep(rampDelay)
-        if debug and (x %10 == 0):
+        if debugLights and (x %10 == 0):
             print (x)
     headLight.clear()
     brainLight.clear()
@@ -221,13 +201,13 @@ def getHue(hues):
     alt = (skew + randint(1,2)) % 3
     newSkew = randint(0, 32767)
     newAlt = 32767 - newSkew
-    if debug:
+    if debugLights:
         print ("newSkew: ", newSkew,  "  newAlt: ", newAlt)
     hues[skew] = newSkew - oldHues[skew]
-    if debug:
+    if debugLights:
         print ("skew = ", skew, "  value = ", hues[skew])
     hues[alt] = newAlt - oldHues[alt]
-    if debug:
+    if debugLights:
         print ("alt = ", alt, "  value = ", hues[alt])
     ndx = [0, 1, 2]
     ndx.remove(skew)
@@ -235,7 +215,7 @@ def getHue(hues):
     hues[ndx[0]] = (-1 * hues[ndx[0]])/rampVal
     hues[skew] = hues[skew]/rampVal
     hues[alt] = hues[alt]/rampVal
-    if debug:
+    if debugLights:
         print ("getHue ndx = ", ndx, "  hues[ndx] = ", hues[ndx[0]], "  hues = ", hues)
 
 ##################################################################################
@@ -254,10 +234,10 @@ def doTime():
     date = datetime.now()
     timeStr = date.strftime("It is %I:%M %p on %A, %B %d")
     dateTxt = "aoss swift \"<prosody rate='-0.3'>" + timeStr + "\""
-    if debug:
+    if debugTalk:
         print (dateTxt)
     if __name__ == "__main__":
-        ls = Process(target=lightShow, args=(1,))
+        ls = Process(target=lightShow, args=(2,))
         ls.start()
         ps = Process(target=speak, args=(dateTxt,))
         ps.start()
@@ -267,19 +247,19 @@ def doTime():
 def weatherDetails():
     with urllib.request.urlopen("https://geoip-db.com/json") as url:
         data = json.loads(url.read().decode())
-        if debug:
+        if debugTalk:
             print(data)
         city = data["city"]
         state = data["state"]
         postal = data["postal"]
-        if debug:
+        if debugTalk:
             print (city, ",", state, "  ", postal)
     getWeather = ("http://api.openweathermap.org/data/2.5/weather?zip=" +
             str(postal) + 
             ",US&units=imperial&APPID=654aba6d654a67d6b2917f37c410141f")
     with urllib.request.urlopen(getWeather) as url:
         data = json.loads(url.read().decode())
-    if debug:
+    if debugTalk:
         print (data)
     temp = str(int(data["main"]["temp"])) + " degree"
     if not (temp[0:1] == "1 " or temp[0:2] == "-1 "):
@@ -317,9 +297,9 @@ def quoteDetails():
     quote = quote[:-1]  # strip " off end
     quote = quote[1:]   # and front
     author = data['entries'][0]['title']
-    quoteTxt = ("aoss swift \"<prosody rate='-0.5'>" + quote +
+    quoteTxt = ("aoss swift \"<prosody rate='-0.3'>" + quote +
                  "<break strength='strong' />" + author + "\"")
-    if debug:
+    if debugTalk:
         print (quoteTxt)
     speak(quoteTxt)
 
@@ -359,7 +339,7 @@ def wakeUp():
 ceyes = Eyes()
 headLight = Lamp(0)
 brainLight = Lamp(3)
-wakeUp() 
+wakeUp()
 
 try:  
     while True:
@@ -373,6 +353,12 @@ try:
                 doWeather()
             if (code == 3):
                 doQuote()
+            if (code == 255):
+                headLight.clear()
+                brainLight.clear()
+                ceyes.clear()  
+                GPIO.cleanup() # this ensures a clean exit
+                os.system("shutdown now")
  
 except KeyboardInterrupt:
     headLight.clear()
