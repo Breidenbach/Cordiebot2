@@ -312,6 +312,29 @@ def doQuote():
         ps = Process(target=quoteDetails)
         ps.start()
         ls.join()
+        ps.join()
+
+def originsDetails():
+    originsTxt = (  "aoss swift \"<prosody rate='-0.3'>I am Cordeebot." + 
+                    "<break strength='strong' />" +
+                    "I was made by Grampa in 20 16 for Cordies 11th birthday." +
+                    "<break strength='strong' />" +
+                    "In 20 19 Grampa gave me a new brain." +
+                    "<break strength='strong' />" +                    
+                    "I feel much smarter now.\"")
+    if debugTalk:
+        print (originsTxt)
+    speak(originsTxt)
+                        
+def doOrigins():
+    if debug:
+        print ("getting origins")
+    if __name__ == "__main__":
+        ls = Process(target=lightShow, args=(6,))
+        ls.start()
+        ps = Process(target=originsDetails)
+        ps.start()
+        ls.join()
         ps.join()                
  
 ##################################################################################
@@ -353,6 +376,8 @@ try:
                 doWeather()
             if (code == 3):
                 doQuote()
+            if (code == 8):
+                doOrigins()
             if (code == 255):
                 headLight.clear()
                 brainLight.clear()
