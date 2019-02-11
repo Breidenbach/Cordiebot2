@@ -1,3 +1,5 @@
+##################################################################################
+#
 # CordieBot2
 #
 #  The CordieBot gets a new brain, using a Raspberry Pi instead of an Arduino.
@@ -12,6 +14,13 @@
 #                   for more than 5 seconds)
 #
 #  Author: Hal Breidenbach
+#
+##################################################################################
+#
+#     Imports
+#
+##################################################################################
+
 import board
 import busio
 import time
@@ -26,6 +35,8 @@ import json
 from random import *
 import urllib.request
 import feedparser
+import socket
+
 
 # from blinkateest set up SPI communication port    
 spi = busio.SPI(board.SCLK, board.MOSI, board.MISO)  # from blinkateest
@@ -56,15 +67,40 @@ rampVal = 64
 
 request = TouchButton(button, 1.5)
 
-with urllib.request.urlopen("https://geoip-db.com/json") as url:
-    data = json.loads(url.read().decode())
+def info(title):
+    if (debug):
+        print (title)
+        print ('module name:', __name__)
+        if hasattr(os, 'getppid'):  # only available on Unix
+            print ('parent process:', os.getppid())
+        print ('process id:', os.getpid())
+    
+def speak(phrase):
+    info('function speak')
     if debug:
-        print(data)
-    city = data["city"]
-    state = data["state"]
-    postal = data["postal"]
-    if debug:
-        print (city, ",", state, "  ", postal)
+        print (phrase)
+    os.system(phrase)
+    
+noNetworkTxt = ("aoss swift \"I don't appear to be connected to a why fi network." +
+                "<break strength='strong' />" +                    
+                " Check if your why fi is running. Check if anyone changed " +
+                "the password.  Otherwise, grampa might be able to help.\"")
+
+def internet():
+    return (os.system("ping -c 1 8.8.8.8") == 0)
+    
+if internet():
+    with urllib.request.urlopen("https://geoip-db.com/json") as url:
+        data = json.loads(url.read().decode())
+        if debug:
+            print(data)
+        city = data["city"]
+        state = data["state"]
+        postal = data["postal"]
+        if debug:
+            print (city, ",", state, "  ", postal)
+else:
+    speak(noNetworkTxt)
 
 
 class Eyes:
@@ -133,14 +169,6 @@ class Lamp:
     def send(self):
         leds[self.lightChannel] = (int(self.r)*2, int(self.g)*2, int(self.b)*2)
 
-def info(title):
-    if (debug):
-        print (title)
-        print ('module name:', __name__)
-        if hasattr(os, 'getppid'):  # only available on Unix
-            print ('parent process:', os.getppid())
-        print ('process id:', os.getpid())
-    
 
 ##################################################################################
 #
@@ -224,12 +252,6 @@ def getHue(hues):
 #
 ##################################################################################
 
-def speak(phrase):
-    info('function speak')
-    if debug:
-        print (phrase)
-    os.system(phrase)
-    
 def doTime():
     date = datetime.now()
     timeStr = date.strftime("It is %I:%M %p on %A, %B %d")
@@ -245,37 +267,39 @@ def doTime():
         ls.join()
 
 def weatherDetails():
-    with urllib.request.urlopen("https://geoip-db.com/json") as url:
-        data = json.loads(url.read().decode())
+    if internet():
+        with urllib.request.urlopen("https://geoip-db.com/json") as url:
+            data = json.loads(url.read().decode())
+            if debugTalk:
+                print(data)
+            city = data["city"]
+            state = data["state"]
+            postal = data["postal"]
+            if debugTalk:
+                print (city, ",", state, "  ", postal)
+        getWeather = ("http://api.openweathermap.org/data/2.5/weather?zip=" +
+                str(postal) + 
+                ",US&units=imperial&APPID=654aba6d654a67d6b2917f37c410141f")
+        with urllib.request.urlopen(getWeather) as url:
+            data = json.loads(url.read().decode())
         if debugTalk:
-            print(data)
-        city = data["city"]
-        state = data["state"]
-        postal = data["postal"]
-        if debugTalk:
-            print (city, ",", state, "  ", postal)
-    getWeather = ("http://api.openweathermap.org/data/2.5/weather?zip=" +
-            str(postal) + 
-            ",US&units=imperial&APPID=654aba6d654a67d6b2917f37c410141f")
-    with urllib.request.urlopen(getWeather) as url:
-        data = json.loads(url.read().decode())
-    if debugTalk:
-        print (data)
-    temp = str(int(data["main"]["temp"])) + " degree"
-    if not (temp[0:1] == "1 " or temp[0:2] == "-1 "):
-        temp = temp + "s"
-    condition = data["weather"][0]["description"] # extract weather description from
-                                            # returned data.
-    # substitute some phrases to make them more understandable or better English
-    condition = condition.replace("sky","skies")
-    condition = condition.replace("haze","hazey skies")
-    condition = condition.replace("overcast","over cast")
-    condition = condition.replace("thunderstorm","thunderstorms")
-    weatherTxt = ("aoss swift \"<prosody rate='-0.3'>The temperature outside is " +
-        temp + " with " +
-        condition + "\"")
-    speak(weatherTxt)
-
+            print (data)
+        temp = str(int(data["main"]["temp"])) + " degree"
+        if not (temp[0:1] == "1 " or temp[0:2] == "-1 "):
+            temp = temp + "s"
+        condition = data["weather"][0]["description"] # extract weather description from
+                                                # returned data.
+        # substitute some phrases to make them more understandable or better English
+        condition = condition.replace("sky","skies")
+        condition = condition.replace("haze","hazey skies")
+        condition = condition.replace("overcast","over cast")
+        condition = condition.replace("thunderstorm","thunderstorms")
+        weatherTxt = ("aoss swift \"<prosody rate='-0.3'>The temperature outside is " +
+            temp + " with " +
+            condition + "\"")
+        speak(weatherTxt)
+    else:
+        speak(noNetworkTxt)
 
 def doWeather():
     if debug:
@@ -292,17 +316,20 @@ def doWeather():
             print ('%s.exitcode = %s' % (ls.name, ls.exitcode))
 
 def quoteDetails():
-    data = feedparser.parse('https://www.brainyquote.com/link/quotebr.rss')
-    quote = data['entries'][0]['summary_detail']['value']
-    quote = quote[:-1]  # strip " off end
-    quote = quote[1:]   # and front
-    author = data['entries'][0]['title']
-    quoteTxt = ("aoss swift \"<prosody rate='-0.3'>" + quote +
-                 "<break strength='strong' />" + author + "\"")
-    if debugTalk:
-        print (quoteTxt)
-    speak(quoteTxt)
-
+    if internet():
+        data = feedparser.parse('https://www.brainyquote.com/link/quotebr.rss')
+        quote = data['entries'][0]['summary_detail']['value']
+        quote = quote[:-1]  # strip " off end
+        quote = quote[1:]   # and front
+        author = data['entries'][0]['title']
+        quoteTxt = ("aoss swift \"<prosody rate='-0.3'>" + quote +
+                     "<break strength='strong' />" + author + "\"")
+        if debugTalk:
+            print (quoteTxt)
+        speak(quoteTxt)
+    else:
+        speak(noNetworkTxt)
+        
 def doQuote():
     if debug:
         print ("getting quote")
