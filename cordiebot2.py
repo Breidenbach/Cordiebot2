@@ -51,13 +51,16 @@ leds = adafruit_tlc59711.TLC59711(spi)
 #
 ##################################################################################
 
-debug = True  # to print various details
-debugLights = False   # help debugging light show
-debugTalk = False  # help debug speaking
+debug = True            # to print various details
+debugLights = False     # help debugging light show
+debugTalk = False       # help debug speaking
 
 button = 25  # GPIO number of touch sensor
-# LED board uses SPIMOSI and SPISCLK
-# Sound output uses 18
+#              LED board uses SPIMOSI and SPISCLK
+#              Sound output uses 18
+
+ampEnable = 21  # GPIO number to enable the amplifier board
+#                 when low, amp is disabled
 
 #print ("GPIO GPIO12 ", board.GPIO12)
 GPIO.setmode(GPIO.BCM)
@@ -79,7 +82,9 @@ def speak(phrase):
     info('function speak')
     if debug:
         print (phrase)
+    GPIO.output(ampEnable, GPIO.HIGH)
     os.system(phrase)
+    GPIO.output(ampEnable, GPIO.LOW)
     
 noNetworkTxt = ("aoss swift \"I don't appear to be connected to a why fi network." +
                 "<break strength='strong' />" +                    
@@ -386,6 +391,7 @@ def wakeUp():
 #
 ##################################################################################
 
+GPIO.setup(ampEnable, GPIO.OUT, initial=GPIO.LOW)
 ceyes = Eyes()
 headLight = Lamp(0)
 brainLight = Lamp(3)
