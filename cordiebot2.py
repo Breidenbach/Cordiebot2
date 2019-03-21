@@ -36,14 +36,7 @@ from random import *
 import urllib.request
 import feedparser
 import socket
-
-
-# from blinkateest set up SPI communication port    
-spi = busio.SPI(board.SCLK, board.MOSI, board.MISO)  # from blinkateest
-
-# Define the TLC59711 instance to communicate with lights
-leds = adafruit_tlc59711.TLC59711(spi)
-
+import subprocess
 
 ##################################################################################
 #
@@ -62,13 +55,30 @@ button = 25  # GPIO number of touch sensor
 ampEnable = 21  # GPIO number to enable the amplifier board
 #                 when low, amp is disabled
 
-#print ("GPIO GPIO12 ", board.GPIO12)
-GPIO.setmode(GPIO.BCM)
-
 # define how many increments to use for ramping in the lightShow routine
 rampVal = 64
 
-request = TouchButton(button, 1.5)
+##################################################################################
+#
+#     I/O setup
+#
+##################################################################################
+
+GPIO.setmode(GPIO.BCM)
+
+# from blinkateest set up SPI communication port    
+spi = busio.SPI(board.SCLK, board.MOSI, board.MISO)  # from blinkateest
+
+# Define the TLC59711 instance to communicate with lights
+leds = adafruit_tlc59711.TLC59711(spi)
+
+GPIO.setup(ampEnable, GPIO.OUT, initial=GPIO.LOW)
+
+##################################################################################
+#
+#     Function definitions
+#
+##################################################################################
 
 def info(title):
     if (debug):
@@ -86,27 +96,32 @@ def speak(phrase):
     os.system(phrase)
     GPIO.output(ampEnable, GPIO.LOW)
     
-noNetworkTxt = ("aoss swift \"I don't appear to be connected to a why fi network." +
-                "<break strength='strong' />" +                    
-                " Check if your why fi is running. Check if anyone changed " +
-                "the password.  Otherwise, grampa might be able to help.\"")
-
 def internet():
     return (os.system("ping -c 1 8.8.8.8") == 0)
-    
-if internet():
-    with urllib.request.urlopen("https://geoip-db.com/json") as url:
-        data = json.loads(url.read().decode())
-        if debug:
-            print(data)
-        city = data["city"]
-        state = data["state"]
-        postal = data["postal"]
-        if debug:
-            print (city, ",", state, "  ", postal)
-else:
-    speak(noNetworkTxt)
 
+def findCordiebotUSB():
+    # file handle fh
+    inLine = ""
+    fh = open('/proc/mounts')
+    while True:
+        # read line
+        line = fh.readline()
+        # in python 2, print line
+        # in python 3
+        if "CORDIEBOT" in line:
+            inLine = line
+            break
+        # check if line is not empty
+        if not line:
+            break
+    fh.close()
+    return inLine
+
+##################################################################################
+#
+#     Class definitions
+#
+##################################################################################
 
 class Eyes:
     def open(self):
@@ -173,6 +188,68 @@ class Lamp:
         return self.b
     def send(self):
         leds[self.lightChannel] = (int(self.r)*2, int(self.g)*2, int(self.b)*2)
+
+##################################################################################
+#
+#     Start up activity
+#
+##################################################################################
+
+# check for wpa_supplicant.conf file repacement
+#   If file is present, it is moved to /etc/wpa_supplicant/ and can be used
+#   to find a new wifi network or change the password of an existing network.
+#   Note that the system must be restarted to use the new wpa_supplicant.conf 
+#   file.
+
+wpa_supplicant_txt = ("aoss swift \"I have found a new why fi name and " +
+                "password file.  I will start using that file now." +
+                "  I need to restart which will take several seconds." + 
+                "  Be sure to remove the USB drive while I am restarting.\"")
+                
+CBLine = findCordiebotUSB()
+if CBLine == "":
+    if debug:
+        print ("not in view")
+else:
+    if debug:
+        print (CBLine)
+    firstSpace = CBLine.find(' ')
+    secondSpace = CBLine.find(' ', firstSpace + 1)
+    dirSpec = CBLine[int(firstSpace + 1):int(secondSpace)]
+    if debug:
+        print (dirSpec)
+    
+    files = os. listdir(dirSpec)
+    for name in files:
+        if (name == "wpa_supplicant.conf"):
+            if debug:
+                print ("found file ", name, " and copying it.")
+            speak(wpa_supplicant_txt)
+            p = subprocess.Popen("sudo /home/pi/CordieBot2/cp_wpa_conf.sh "+dirSpec,
+                        shell=True)
+            p.communicate()  # this waits for completion of the copy
+            os.system("shutdown -r now")
+
+# check for internet connection, if none a warning is issued.
+                        
+noNetworkTxt = ("aoss swift \"I don't appear to be connected to a why fi network." +
+                "<break strength='strong' />" +                    
+                " Check if your why fi is running. Check if anyone changed " +
+                "the password.  Otherwise, grampa might be able to help.\"")
+
+if internet():
+    with urllib.request.urlopen("https://geoip-db.com/json") as url:
+        data = json.loads(url.read().decode())
+        if debug:
+            print(data)
+        city = data["city"]
+        state = data["state"]
+        postal = data["postal"]
+        if debug:
+            print (city, ",", state, "  ", postal)
+else:
+    speak(noNetworkTxt)
+
 
 
 ##################################################################################
@@ -391,7 +468,8 @@ def wakeUp():
 #
 ##################################################################################
 
-GPIO.setup(ampEnable, GPIO.OUT, initial=GPIO.LOW)
+
+request = TouchButton(button, 1.5)
 ceyes = Eyes()
 headLight = Lamp(0)
 brainLight = Lamp(3)
