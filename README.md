@@ -12,6 +12,6 @@ This version uses logic similar to the original for the light show, but now has 
   -  2 touches and she says the current weather based on the location of the Cordiebot.
   -  3 touches and she says the quote for the day from BrainyQuote.com.
   -  8 touches and she tells her origin story.
-- Holding the button for more than 5 seconds causes a shutdown of the system, so that a reboot can occur.  This allows reloading the wpa_supplicant.conf file can be reloaded from a USB drive, allowing the Cordiebot to get a new WIFI password or WIFI source.
+- Holding the button for more than 5 seconds causes a shutdown of the system, so that a reboot can occur.
+- Check for a USB drive on start up, and when internet access is disrupted.  If the USB drive is found, check for a new wpa_supplicant.conf file or cordiebot2.py file.  If either file is found, copy it using special scripts to the appropriate directory. Thus this version has the capability of changing the WIFI name and password without a keyboard as well as updating the software.  It is expected that the USB drive will be removed during the reboot process.
 - This version uses python multiprocessing to overlap the light show and speech.
-- Since the weather and quotes from BrainyQuote.com require access to the internet, presumably over WIFI, this version has the capability of changing the WIFI name and password without a keyboard.  This is done by putting a replacement wpa_supplicant.conf file on a USB drive and inserting it into the RaspberryPi in the CordieBot.  When the drive is detected, the wpa_supplicant.conf file on the drive is moved to the /etc/wpa_supplicant directory and the system is rebooted.  It is expected that the drive will be removed during the reboot process.
