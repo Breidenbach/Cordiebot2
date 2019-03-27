@@ -15,3 +15,11 @@ This version uses logic similar to the original for the light show, but now has 
 - Holding the button for more than 5 seconds causes a shutdown of the system, so that a reboot can occur.
 - Check for a USB drive on start up, and when internet access is disrupted.  If the USB drive is found, check for a new wpa_supplicant.conf file or cordiebot2.py file.  If either file is found, copy it using special scripts to the appropriate directory. Thus this version has the capability of changing the WIFI name and password without a keyboard as well as updating the software.  It is expected that the USB drive will be removed during the reboot process.
 - This version uses python multiprocessing to overlap the light show and speech.
+
+FILES
+
+- TouchButton.py: class for the touch sensitive button.  Detectes the number of times the button is pressed with a short delay betwee presses, and if the button is pressed for more than five seconds.
+- cordiebot2.py: the main script.
+- cp_cordiebot2.sh: copies the cordiebot2.py file from a USB drive to the current directory.
+- cp_wpa_conf.sh: copies the wpa_supplicant.conf file from a USB drive to /etc/wpa_supplicant/
+- testUSBmounted.py: script to test finding a USB drive.
