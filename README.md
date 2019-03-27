@@ -1,5 +1,5 @@
 # Cordiebot2
-This bot was created from a brass lamp found in a resale store. Cordiebot 2 is a remake of the original Arduino version which was made as a present for my granddaughter's 11th birthday. The original Arduino version can be found in the repository: Cordiebot.
+This bot was created from a brass lamp found in a resale store. Cordiebot 2 is a remake of the original Arduino version which was made as a present for my granddaughter's 11th birthday. The original Arduino version can be found in the repository: https://github.com/Breidenbach/CordieBot .
 
 Note that the Cordiebot is a bot named after my granddaughter Cordie (duh).
 
