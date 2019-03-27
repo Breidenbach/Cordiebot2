@@ -116,6 +116,65 @@ def findCordiebotUSB():
             break
     fh.close()
     return inLine
+    
+# check for wpa_supplicant.conf file repacement
+#   If file is present, it is moved to /etc/wpa_supplicant/ and can be used
+#   to find a new wifi network or change the password of an existing network.
+#   Note that the system must be restarted to use the new wpa_supplicant.conf 
+#   file.
+
+noNetworkTxt = ("aoss swift \"I don't appear to be connected to a why fi network." +
+                "<break strength='strong' />" +                    
+                " Check if your why fi is running. Check if anyone changed " +
+                "the password.  Otherwise, grampa might be able to help.\"")
+
+wpa_supplicant_txt = ("aoss swift \"I have found a new why fi name and " +
+                "password file.  I will start using that file now.\"" )
+                
+cordiebot2_txt = ("aoss swift \"I have found a new cordee bot2 file. " +
+                "I will start using that file now.\"" )
+                
+shutdown_txt =  ( "aoss swift \"I need to restart which will take several seconds." + 
+                "  Be sure to remove the USB drive while I am restarting.\"")
+
+def checkForConf():
+    CBLine = findCordiebotUSB()
+    if CBLine == "":
+        if debug:
+            print ("not in view")
+        speak(noNetworkTxt)
+    else:
+        if debug:
+            print (CBLine)
+        firstSpace = CBLine.find(' ')
+        secondSpace = CBLine.find(' ', firstSpace + 1)
+        dirSpec = CBLine[int(firstSpace + 1):int(secondSpace)]
+        if debug:
+            print (dirSpec)
+    
+        files = os. listdir(dirSpec)
+        shutdown = False
+        for name in files:
+            if (name == "wpa_supplicant.conf"):
+                if debug:
+                    print ("found file ", name, " and copying it.")
+                speak(wpa_supplicant_txt)
+                p = subprocess.Popen("sudo /home/pi/CordieBot2/cp_wpa_conf.sh "+dirSpec,
+                            shell=True)
+                p.communicate()  # this waits for completion of the copy
+                shutdown = True
+            if (name == "cordiebot2.py"):
+                if debug:
+                    print ("found file ", name, "and copying it.")
+                speak(cordiebot2_txt)
+                p = subprocess.Popen("/home/pi/CordieBot2/cp_cordiebot2.sh "+dirSpec,
+                            shell=True)
+                p.communicate()  # this waits for completion of the copy
+                shutdown = True
+        if (shutdown == True):
+            speak(shutdown_txt)
+            os.system("shutdown -r now")
+
 
 ##################################################################################
 #
@@ -195,47 +254,10 @@ class Lamp:
 #
 ##################################################################################
 
-# check for wpa_supplicant.conf file repacement
-#   If file is present, it is moved to /etc/wpa_supplicant/ and can be used
-#   to find a new wifi network or change the password of an existing network.
-#   Note that the system must be restarted to use the new wpa_supplicant.conf 
-#   file.
 
-wpa_supplicant_txt = ("aoss swift \"I have found a new why fi name and " +
-                "password file.  I will start using that file now." +
-                "  I need to restart which will take several seconds." + 
-                "  Be sure to remove the USB drive while I am restarting.\"")
-                
-CBLine = findCordiebotUSB()
-if CBLine == "":
-    if debug:
-        print ("not in view")
-else:
-    if debug:
-        print (CBLine)
-    firstSpace = CBLine.find(' ')
-    secondSpace = CBLine.find(' ', firstSpace + 1)
-    dirSpec = CBLine[int(firstSpace + 1):int(secondSpace)]
-    if debug:
-        print (dirSpec)
-    
-    files = os. listdir(dirSpec)
-    for name in files:
-        if (name == "wpa_supplicant.conf"):
-            if debug:
-                print ("found file ", name, " and copying it.")
-            speak(wpa_supplicant_txt)
-            p = subprocess.Popen("sudo /home/pi/CordieBot2/cp_wpa_conf.sh "+dirSpec,
-                        shell=True)
-            p.communicate()  # this waits for completion of the copy
-            os.system("shutdown -r now")
-
-# check for internet connection, if none a warning is issued.
+#  Routine to check for internet access, and if none is found run routine
+#   to check if a USB card is present.
                         
-noNetworkTxt = ("aoss swift \"I don't appear to be connected to a why fi network." +
-                "<break strength='strong' />" +                    
-                " Check if your why fi is running. Check if anyone changed " +
-                "the password.  Otherwise, grampa might be able to help.\"")
 
 if internet():
     with urllib.request.urlopen("https://geoip-db.com/json") as url:
@@ -248,9 +270,7 @@ if internet():
         if debug:
             print (city, ",", state, "  ", postal)
 else:
-    speak(noNetworkTxt)
-
-
+    checkForConf()
 
 ##################################################################################
 #
@@ -381,7 +401,7 @@ def weatherDetails():
             condition + "\"")
         speak(weatherTxt)
     else:
-        speak(noNetworkTxt)
+        checkForConf()
 
 def doWeather():
     if debug:
@@ -410,7 +430,7 @@ def quoteDetails():
             print (quoteTxt)
         speak(quoteTxt)
     else:
-        speak(noNetworkTxt)
+        checkForConf()
         
 def doQuote():
     if debug:
@@ -453,7 +473,7 @@ def doOrigins():
 ##################################################################################
 
 def wakeUp():
-    speak('aoss swift "Hi "')
+    speak('aoss swift "I am version 2"')
     ceyes.open()
     ceyes.close()
     headLight.update(32767, 32767, 32767)
