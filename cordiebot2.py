@@ -1,6 +1,6 @@
 ##################################################################################
 #
-# CordieBot2
+# CordieBot2  Ver. 2.00
 #
 #  The CordieBot gets a new brain, using a Raspberry Pi instead of an Arduino.
 #
@@ -117,16 +117,16 @@ def findCordiebotUSB():
     fh.close()
     return inLine
     
+noNetworkTxt = ("aoss swift \"I don't appear to be connected to a why fi network.\"" )
+
+def informNoNetwork():
+    speak(noNetworkTxt)
+
 # check for wpa_supplicant.conf file repacement
 #   If file is present, it is moved to /etc/wpa_supplicant/ and can be used
 #   to find a new wifi network or change the password of an existing network.
 #   Note that the system must be restarted to use the new wpa_supplicant.conf 
 #   file.
-
-noNetworkTxt = ("aoss swift \"I don't appear to be connected to a why fi network." +
-                "<break strength='strong' />" +                    
-                " Check if your why fi is running. Check if anyone changed " +
-                "the password.  Otherwise, grampa might be able to help.\"")
 
 wpa_supplicant_txt = ("aoss swift \"I have found a new why fi name and " +
                 "password file.  I will start using that file now.\"" )
@@ -137,12 +137,17 @@ cordiebot2_txt = ("aoss swift \"I have found a new cordee bot2 file. " +
 shutdown_txt =  ( "aoss swift \"I need to restart which will take several seconds." + 
                 "  Be sure to remove the USB drive while I am restarting.\"")
 
-def checkForConf():
+checkNetworkTxt = ("aoss swift \" Check if your why fi is running. Check if anyone changed " +
+                "the password.  Otherwise, grampa might be able to help.\"")
+
+def checkForConf(starting):
     CBLine = findCordiebotUSB()
     if CBLine == "":
-        if debug:
-            print ("not in view")
-        speak(noNetworkTxt)
+        if starting == False:
+            if debug:
+                print ("not in view")
+            speak(checkNetworkTxt)
+        # else, no action
     else:
         if debug:
             print (CBLine)
@@ -255,9 +260,10 @@ class Lamp:
 ##################################################################################
 
 
-#  Routine to check for internet access, and if none is found run routine
-#   to check if a USB card is present.
+#  Routine to check for updates to the wpa_supplicant.conf or cordiebot2.py files,
+#  and test internet access.
                         
+checkForConf(True)
 
 if internet():
     with urllib.request.urlopen("https://geoip-db.com/json") as url:
@@ -270,7 +276,8 @@ if internet():
         if debug:
             print (city, ",", state, "  ", postal)
 else:
-    checkForConf()
+    informNoNetwork()
+    checkForConf(False)
 
 ##################################################################################
 #
@@ -401,7 +408,8 @@ def weatherDetails():
             condition + "\"")
         speak(weatherTxt)
     else:
-        checkForConf()
+        informNoNetwork()
+        checkForConf(False)
 
 def doWeather():
     if debug:
@@ -430,7 +438,8 @@ def quoteDetails():
             print (quoteTxt)
         speak(quoteTxt)
     else:
-        checkForConf()
+        informNoNetwork()
+        checkForConf(False)
         
 def doQuote():
     if debug:
@@ -464,7 +473,9 @@ def doOrigins():
         ps = Process(target=originsDetails)
         ps.start()
         ls.join()
-        ps.join()                
+        ps.join()
+        
+                
  
 ##################################################################################
 #
@@ -473,7 +484,7 @@ def doOrigins():
 ##################################################################################
 
 def wakeUp():
-    speak('aoss swift "I am version 2"')
+    speak('aoss swift "I am version 2.00"')
     ceyes.open()
     ceyes.close()
     headLight.update(32767, 32767, 32767)
