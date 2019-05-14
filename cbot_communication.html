@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <title></title>
+    <meta name="generator" content="BBEdit 12.6" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="Cbot_style.css">
+    <link >
+    <link href="https://fonts.googleapis.com/css?family=Audiowide" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css?family=Cairo" rel="stylesheet">
+    <script type="text/javascript" src=keys.html></script>
+</head>
+    
+<body>
+<div class="container">
+    <h1>CordieBot communication</h1>
+    <h3>Enter data for changing proclamation table.</h3>
+    <h3>Press SEND when ready.</h3>
+    <br>
+    <fieldset class="section">
+        <legend>Action</legend>
+        <div>
+            <input type="radio" id="action_choice" name="action" value="action_add" checked onclick="handleActionChoice(1);">
+            <label for="action_add">
+                Add a message.
+            </label>
+        </div>
+        <div>
+            <input type="radio" id="action_choice" name="action" value="action_change" onclick="handleActionChoice(2);">
+            <label for="action_change">
+                Change a message.
+            </label>
+        </div>
+        <div>
+            <input type="radio" id="action_choice" name="action" value="action_delete" onclick="handleActionChoice(3);">
+            <label for="action_delete">
+                Delete a message.
+            </label>
+        </div>
+        <div>
+            <input type="radio" id="action_choice" name="action" value="action_retrieve_one" onclick="handleActionChoice(4);">
+            <label for="action_retrieve_one">
+                Retrieve one message.
+            </label>
+        </div>
+        <div>
+            <input type="radio" id="action_choice" name="action" value="action_retrieve_date" onclick="handleActionChoice(5);">
+            <label for="action_retrieve_date">
+                Retrieve messages by month and day.
+            </label>
+        </div>
+        <div>
+            <input type="radio" id="action_choice" name="action" value="action_retrieve_all" onclick="handleActionChoice(6);">
+            <label for="action_retrieve_all">
+                Retrieve all messages.
+            </label>
+        </div>
+        <div>
+            <input type="radio" id="action_choice" name="action" value="action_resequence" onclick="handleActionChoice(7);">
+            <label for="action_resequence">
+                Resequence messages.
+            </label>
+        </div>
+    </fieldset>
+        <div class="form-flex">
+            <div class="input">
+                <label for="content" id="message_id_label">Message ID</label>
+                <input type="text" id="message_id" name="Message-ID" onfocusout="checkMessageID()">
+            </div>
+        </div>
+    <fieldset class="section" id="itemchoice_label">
+        <legend>When will this message be used?</legend>
+        <div>
+            <input type="radio" id="itemchoice" name="item_choice" value="One-day" checked onclick="handleItemChoice(1);">
+            <label for="One-day">
+                Just this one day.
+            </label>
+        </div>
+        <div>
+            <input type="radio" id="itemchoice" name="item_choice" value="Annually" onclick="handleItemChoice(2);">
+            <label for="Annually">
+                This day every year.
+            </label>
+        </div>
+        <div>
+            <input type="radio" id="itemchoice" name="item_choice" value="Any-day" onclick="handleItemChoice(3);">
+            <label for="Any-day">
+                Any time.
+            </label>
+        </div>
+    </fieldset>
+    <div class="contact">
+        <div class="form-flex">
+           <div class="input">
+                <label for="year" id="year_label">Effective Date (yyyy)</label>
+                <input type="text" id="year" name="Active Date year" onfocusout="checkYear()">
+            </div>
+           <div class="input">
+                <label for="month" id="month_label">(mm)</label>
+                <input type="text" id="month" name="Active Date month" onfocusout="checkDate()">
+            </div>
+           <div class="input">
+                <label for="day" id="day_label">(dd)</label>
+                <input type="text" id="day" name="Active Date day" onfocusout="checkDate()">
+            </div>
+        </div>
+        <div class="form-flex">
+            <div class="input">
+                <label for="content" id="content_label">Message</label>
+                <input type="text" id="content" name="Content" onfocusout="checkMessageContent()">
+            </div>
+        </div>
+    </div>
+    <button id=button class="button">SEND</button>
+    
+    <h3>Chat Output</h3>
+
+    <div><input id=input  /></div>
+
+    <div id=box></div>
+    <script src=https://cdn.pubnub.com/sdk/javascript/pubnub.4.0.11.min.js></script>
+    <script>
+        var today = new Date();
+        var radioSelection = 1;  // This value should be the same as the enabled item in the fieldset radiobox definitions.
+        var actionSelection = 1;  // This value should be the same as the enabled item in the fieldset radiobox definitions.
+        
+        handleActionChoice(1);
+        
+        function handleItemChoice(num) {
+            radioSelection = num;
+            switch(num){
+                case 1:
+                    enableEntry("year");
+                    year.focus();
+                    enableEntry("month");
+                    enableEntry("day");
+                    break;
+                case 2:
+                    disableEntry("year");
+                    enableEntry("month");
+                    month.focus();
+                    enableEntry("day");
+                    break;
+                case 3:
+                    disableEntry("year");
+                    disableEntry("month");
+                    disableEntry("day");
+                    content.focus();
+                    break;
+                default:
+            }
+        }
+        function handleActionChoice(num) {
+            actionSelection = num;
+            switch(num){
+                case 1:  //  add message
+                    disableEntry("message_id");
+                    colorEnableFieldset("itemchoice_label");
+                    handleItemChoice(radioSelection)
+                    enableEntry("content");
+                    break;
+                case 2:  //  change message
+                    enableEntry("message_id");
+                    colorEnableFieldset("itemchoice_label");
+                    handleItemChoice(radioSelection)
+                    enableEntry("content");
+                    break;
+                case 3:  //  delete message
+                case 4: //   retrieve one message
+                    enableEntry("message_id");
+                    message_id.focus();
+                    colorDisableFieldset("itemchoice_label");
+                    disableEntry("content");
+                    disableEntry("year");
+                    disableEntry("month");
+                    disableEntry("day");
+                    break;
+                case 5:  //  retrieve message by date
+                    disableEntry("message_id");
+                    colorDisableFieldset("itemchoice_label");
+                    disableEntry("content");
+                    disableEntry("year");
+                    enableEntry("month");
+                    enableEntry("day");
+                    break;
+                case 6:  //  retrieve all messages
+                case 7:  //  resequence messages
+                    disableEntry("message_id");
+                    colorDisableFieldset("itemchoice_label");
+                    disableEntry("content");
+                    disableEntry("year");
+                    disableEntry("month");
+                    disableEntry("day");
+                    break;
+                default:
+            }
+        }
+        function checkVariables(num) {
+            var input_ok = true;
+            switch(num){
+                case 1:  //  add message
+                    checkItemChoice(radioSelection);
+                    if( ! checkMessageContent()) input_ok = false;
+                    break;
+                case 2:  //  change message
+                    if ( ! checkMessageID()) input_ok = false;
+                    checkItemChoice(radioSelection);
+                    if ( ! checkMessageContent()) input_ok = false;
+                    break;
+                case 3:  //  delete message
+                case 4: //   retrieve one message
+                    if ( ! checkMessageID()) input_ok = false;
+                    break;
+                case 5:  //  retrieve message by date
+                    if ( ! checkDate()) input_ok = false;
+                    break;
+                case 6:  //  retrieve all messages
+                case 7:  //  resequence messages
+                    break;
+                default:
+            }
+            return input_ok
+        }
+        function checkItemChoice(num) {
+            var item_ok = true;
+            switch(num){
+                case 1:
+                    if ( ! checkYear() || ! checkDate()) item_ok = false;
+                    break;
+                case 2:
+                    if ( ! checkDate()) item_ok = false;
+                    break;
+                case 3:
+                    break;
+                default:
+            }
+            return item_ok;
+        }
+        function checkYear() {
+            x = document.getElementById("year");
+            xl = document.getElementById("year_label");
+            if (isNaN(year.value) || year.value < today.getFullYear()) {
+		        x.style.color='#ff0000';
+		        xl.style.color='#ff0000';
+		        xl.innerHTML = "Year must be numeric and this year or greater.";
+		        field_ok = false;                
+                year.focus();
+            } else {
+		        x.style.color='#000000';
+		        xl.style.color='#000000';
+		        xl.innerHTML = "Effective Date (yyyy)";
+		        field_ok = true;                
+      	    }
+		    return field_ok
+        }
+        function checkDate() {
+            if (checkMonth()){
+                return (checkDay())
+            } else {
+                return false;
+            }
+        }
+        function checkMonth() {
+            var x = document.getElementById("month");
+            var xl = document.getElementById("month_label");
+            if (month.value > 0 && month.value < 13)  {
+		        x.style.color='#000000';
+		        xl.style.color='#000000';
+		        xl.innerHTML = "(mm)";
+		        field_ok = true;                
+            } else {
+		        x.style.color='#ff0000';
+		        xl.style.color='#ff0000';
+		        xl.innerHTML = "Month is invalid";
+		        field_ok = false;                
+                month.focus();
+            }
+		    return field_ok
+        }
+        function checkDay() {
+            var x = document.getElementById("day");
+            var xl = document.getElementById("day_label");
+            if (isValidDate(year.value, month.value, day.value))  {
+		        x.style.color='#000000';
+		        xl.style.color='#000000';
+		        xl.innerHTML = "(dd)";
+		        field_ok = true;                
+            } else {
+		        x.style.color='#ff0000';
+		        xl.style.color='#ff0000';
+		        xl.innerHTML = "Day is invalid";
+		        field_ok = false;                
+                day.focus();
+            }
+		    return field_ok
+        }
+        function isValidDate(y, m, d) {
+            // Assume not leap year by default (note zero index for Jan)
+            var daysInMonth = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+
+            // If evenly divisible by 4 and not evenly divisible by 100,
+            // or is evenly divisible by 400, then a leap year
+            if ((!(y % 4) && y % 100) || !(y % 400)) {
+                daysInMonth[1] = 29;
+            }
+          return !(/\D/.test(String(d))) && d > 0 && d <= daysInMonth[--m]
+        }
+        function checkMessageID() {
+            x = document.getElementById("message_id");
+            xl = document.getElementById("message_id_label");
+            if (isNaN(message_id.value) || (message_id.value.length < 1)) {
+		        x.style.color='#ff0000';
+		        xl.style.color='#ff0000';
+		        xl.innerHTML = "Message ID must be numeric.";                
+		        field_ok = false;                
+                x.focus();
+            } else {
+		        x.style.color='#000000';
+		        xl.style.color='#000000';
+		        xl.innerHTML = "Message ID";
+		        field_ok = true;                
+		    }
+		    return field_ok
+        }
+        function checkMessageContent() {
+            x = document.getElementById("content");
+            xl = document.getElementById("content_label");
+            msg = content.value;
+            if (msg.length < 1) {
+		        x.style.color='#ff0000';
+		        xl.style.color='#ff0000';
+		        xl.innerHTML = "Message must have content.";                
+		        field_ok = false;                
+                x.focus();
+            } else {
+		        x.style.color='#000000';
+		        xl.style.color='#000000';
+		        xl.innerHTML = "Message";
+		        field_ok = true;  
+		    }              
+		    return field_ok
+        }
+        function disableEntry(entry) {
+            //   console.log("in disableEntry with "+entry);
+            x = document.getElementById(entry);
+            x.style.color = '#D3D3D3';
+            x.disabled = true;
+            document.getElementById(entry+"_label").style.color = '#D3D3D3';
+        }
+        function enableEntry(entry) {
+            //   console.log("in enableEntry with "+entry);
+            x = document.getElementById(entry);
+            x.style.color = '#000000';
+            x.disabled = false;
+            document.getElementById(entry+"_label").style.color = '#000000';
+        }
+        function colorDisableFieldset(fs)  {
+            fsid = document.getElementById(fs);
+            fsid.disabled = true;
+            fsid.style.color = '#D3D3D3';
+        }
+
+        function colorEnableFieldset(fs)  {
+            fsid = document.getElementById(fs);
+            fsid.disabled = false;
+            fsid.style.color = '#000000';
+        }
+    
+    (function(){
+          var pubnub = new PubNub({ publishKey : Publish,
+                  subscribeKey : Subscribe });
+          var button = document.querySelector("button");
+          var jsonData = {'action':'', 'ID':'', 'type':'', 'year':'', 'month':'', 'day':'', 'content':''}
+          function $(id) { return document.getElementById(id); }
+          var typebox = $(0);
+          day.value = String(today.getDate()).padStart(2, '0');
+          month.value = String(today.getMonth() + 1).padStart(2, '0'); //January is 0!
+          year.value = today.getFullYear();
+          var channel = 'cordiebot';
+          pubnub.addListener({
+              message: function(obj) {
+                  box.innerHTML = (''+obj.message).replace( /[<>]/g, '' ) + '<br>' + box.innerHTML
+              }});
+          pubnub.subscribe({channels:[channel]});
+          button.addEventListener('click', function() {
+                //   console.log(checkVariables(actionSelection))
+                if (checkVariables(actionSelection)) {
+                    jsonData.action = actionSelection;
+                    jsonData.ID = message_id.value;
+                    jsonData.type = radioSelection;
+                    jsonData.year = year.value;
+                    jsonData.month = month.value;
+                    jsonData.day = day.value;
+                    jsonData.content = content.value;
+                    pubnub.publish({channel : channel,message : jsonData,x : (input.value='')});
+                }
+          });
+    })();
+    </script>
+</div>
+</body>
+</html>
