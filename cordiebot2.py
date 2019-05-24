@@ -180,6 +180,9 @@ def checkForConf(starting):
             speak(shutdown_txt)
             os.system("shutdown -r now")
 
+def doPubNub():
+    os.system('python pubnubpipe.py')
+
 
 ##################################################################################
 #
@@ -279,6 +282,40 @@ else:
     informNoNetwork()
     checkForConf(False)
 
+##################################################################################
+#
+#     Process Proclamations file 
+#
+##################################################################################
+
+
+class manage_p_file:
+    def __init__(self, file_in_memory):
+        with open('proclamations.txt') as p_file:  
+            p_data = json.load(p_file)
+        self.file_in_memory = true
+    def add_entry(message):
+        with open('proclamations.txt', 'w') as p_file:  
+            json.dump(p_data, p_file)
+    def change_entry(message):
+        with open('proclamations.txt', 'w') as p_file:  
+            json.dump(p_data, p_file)
+    def delete_entry(message):
+        with open('proclamations.txt', 'w') as p_file:  
+            json.dump(p_data, p_file)
+    def return_entry(message):
+        pass
+    def return_next_entry(message):
+        pass
+    def return_by_date(message):
+        pass
+    def return_next_by_date(message):
+        pass
+    def resequence():
+        with open('proclamations.txt', 'w') as p_file:  
+            json.dump(p_data, p_file)
+            
+            
 ##################################################################################
 #
 #     lightShow()
@@ -500,44 +537,48 @@ def wakeUp():
 ##################################################################################
 
 
-request = TouchButton(button, 1.5)
-ceyes = Eyes()
-headLight = Lamp(0)
-brainLight = Lamp(3)
-wakeUp()
+if __name__ == '__main__':
+    request = TouchButton(button, 1.5)
+    ceyes = Eyes()
+    headLight = Lamp(0)
+    brainLight = Lamp(3)
+    wakeUp()
+    pn = Process(target=doPubNub)
+    pn.start()
 
-try:  
-    while True:
-        code = request.read()
-        if (code != 0):
-            if debug:
-                print ("code:  ", code)
-            if (code == 1):   #  date/time request
-                doTime()
-            if (code == 2):
-                doWeather()
-            if (code == 3):
-                doQuote()
-            if (code == 8):
-                doOrigins()
-            if (code == 255):
-                headLight.clear()
-                brainLight.clear()
-                ceyes.clear()  
-                GPIO.cleanup() # this ensures a clean exit
-                os.system("shutdown now")
+    try:  
+        while True:
+            code = request.read()
+            if (code != 0):
+                if debug:
+                    print ("code:  ", code)
+                if (code == 1):   #  date/time request
+                    doTime()
+                if (code == 2):
+                    doWeather()
+                if (code == 3):
+                    doQuote()
+                if (code == 8):
+                    doOrigins()
+                if (code == 255):
+                    headLight.clear()
+                    brainLight.clear()
+                    ceyes.clear()  
+                    GPIO.cleanup() # this ensures a clean exit
+                    os.system("shutdown now")
  
-except KeyboardInterrupt:
+    except KeyboardInterrupt:
+        headLight.clear()
+        brainLight.clear()
+        ceyes.clear()  
+        GPIO.cleanup()       # clean up GPIO on CTRL+C exit  
+    
+
     headLight.clear()
     brainLight.clear()
     ceyes.clear()  
-    GPIO.cleanup()       # clean up GPIO on CTRL+C exit  
-    
-
-headLight.clear()
-brainLight.clear()
-ceyes.clear()  
-GPIO.cleanup() # this ensures a clean exit
+    GPIO.cleanup() # this ensures a clean exit
+    pn.join()                
   
-print ("goodbye")
+    print ("goodbye")
 
