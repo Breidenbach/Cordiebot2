@@ -28,6 +28,7 @@ import RPi.GPIO as GPIO   # will this compete with board?
 import adafruit_tlc59711
 import os
 from datetime import datetime
+from datetime import date
 from TouchButton import TouchButton
 from multiprocessing import *
 import requests
@@ -37,6 +38,7 @@ import urllib.request
 import feedparser
 import socket
 import subprocess
+import signal
 
 ##################################################################################
 #
@@ -46,7 +48,7 @@ import subprocess
 
 debug = True            # to print various details
 debugLights = False     # help debugging light show
-debugTalk = False       # help debug speaking
+debugTalk = True       # help debug speaking
 
 button = 25  # GPIO number of touch sensor
 #              LED board uses SPIMOSI and SPISCLK
@@ -117,7 +119,7 @@ def findCordiebotUSB():
     fh.close()
     return inLine
     
-noNetworkTxt = ("aoss swift \"I don't appear to be connected to a why fi network.\"" )
+noNetworkTxt = ("aoss swift \"<prosody rate='-0.3'>I don't appear to be connected to a why fi network.\"" )
 
 def informNoNetwork():
     speak(noNetworkTxt)
@@ -180,10 +182,20 @@ def checkForConf(starting):
             speak(shutdown_txt)
             os.system("shutdown -r now")
 
-def doPubNub():
-    os.system('python pubnubpipe.py')
+def doPubNub(pid):
+    print ('python pubnubpipe.py ' + pid)
+    os.system('python pubnubpipe.py ' + pid)
 
+proc_file_change = False
 
+def receive_signal(signum, stack):
+    global proc_file_change
+    if signum == int(signal.SIGUSR1):
+        proc_file_change = True
+        if debug:
+            print ("received SIGUSR1 setting proc_file_change to " + str(proc_file_change))
+    return
+    
 ##################################################################################
 #
 #     Class definitions
@@ -219,25 +231,25 @@ class Lamp:
         self.b = 0
         self.send()
     def set(self, inr, ing, inb):
-        if debugLights:
-            print ("set led = ", self.lightChannel, "  settings= ",
-                        self.r, self.g, self.b, "  vals=", inr, ing, inb)
+#        if debugLights:
+#            print ("set led = ", self.lightChannel, "  settings= ",
+#                        self.r, self.g, self.b, "  vals=", inr, ing, inb)
         self.r = inr   # r, g, and b values should be sent as 1/2 the desired brightness
         self.g = ing
         self.b = inb
         self.send()
     def update(self, inr, ing, inb):
-        if debugLights:
-            print ("update led = ", self.lightChannel, "  settings= ",
-                        self.r, self.g, self.b, "  vals=", inr, ing, inb)
+#        if debugLights:
+#            print ("update led = ", self.lightChannel, "  settings= ",
+#                        self.r, self.g, self.b, "  vals=", inr, ing, inb)
         self.r += inr
         self.g += ing
         self.b += inb
         self.send()
     def fadeOut(self, inr, ing, inb):
-        if debugLights:
-            print ("fadeOut led = ", self.lightChannel, "  settings= ",
-                        self.r, self.g, self.b, "  vals=", inr, ing, inb)
+#        if debugLights:
+#            print ("fadeOut led = ", self.lightChannel, "  settings= ",
+#                        self.r, self.g, self.b, "  vals=", inr, ing, inb)
         self.r = self.r - inr
         self.g = self.g - ing
         self.b = self.b - inb
@@ -288,33 +300,71 @@ else:
 #
 ##################################################################################
 
+class procTable:
+    def __init__(self):
+        self.count = 0
+        self.list = []
+    def add(self, message):
+        self.count += 1
+        self.list.append(message)
+    def getRandom(self):
+        if self.count == 0:
+            return "empty"
+        else:
+            if self.count == 1:
+                return self.list[0]["message"]
+            else:
+                return self.list[randint(0,self.count-1)]["message"]
+    def clear(self):
+        self.count = 0
+        self.list = []
+    def count(self):
+        return self.count
 
-class manage_p_file:
-    def __init__(self, file_in_memory):
-        with open('proclamations.txt') as p_file:  
-            p_data = json.load(p_file)
-        self.file_in_memory = true
-    def add_entry(message):
-        with open('proclamations.txt', 'w') as p_file:  
-            json.dump(p_data, p_file)
-    def change_entry(message):
-        with open('proclamations.txt', 'w') as p_file:  
-            json.dump(p_data, p_file)
-    def delete_entry(message):
-        with open('proclamations.txt', 'w') as p_file:  
-            json.dump(p_data, p_file)
-    def return_entry(message):
-        pass
-    def return_next_entry(message):
-        pass
-    def return_by_date(message):
-        pass
-    def return_next_by_date(message):
-        pass
-    def resequence():
-        with open('proclamations.txt', 'w') as p_file:  
-            json.dump(p_data, p_file)
-            
+procs_special = procTable()
+procs_today = procTable()
+procs_anytime = procTable()
+
+#  buildProcTables is used when CordieBot is started and other times tables
+#  need initialization 
+
+def buildProcTables():
+    with open('proclamations.txt') as p_file:  
+        p_data = json.load(p_file)
+    mydate = date.today()
+    print( mydate.year, " / ", mydate.month, " / ", mydate.day)
+    for p in p_data['p_msg']:
+        print (p)
+        if p['year'].isdigit():
+            if ((int(p['year']) == mydate.year) and
+                 (int(p['month']) == mydate.month) and
+                 (int(p['day']) == mydate.day)):
+                procs_special.add(p)
+        else:
+            if p['month'].isdigit():
+                if ((int(p['month']) == mydate.month) and
+                     (int(p['day']) == mydate.day)):
+                    procs_today.add(p)
+            else:
+                procs_anytime.add(p)
+
+#  updateProcTables is executed when a message is received from pubnubpipe that the 
+#  proclamation message file has changed.
+
+def updateProcTables():
+    procs_special.clear()
+    procs_today.clear()
+    procs_anytime.clear()
+    buildProcTables()
+
+def getProcMsg():
+    if procs_special.count > 0 and randint(0,4) == 2:
+        return procs_special.getRandom()
+    if procs_today.count > 0 and randint(0,3) == 1:
+        return procs_today.getRandom()
+    if randint(0,2) == 2:
+        return procs_anytime.getRandom()
+    return ''
             
 ##################################################################################
 #
@@ -401,11 +451,15 @@ def getHue(hues):
 def doTime():
     date = datetime.now()
     timeStr = date.strftime("It is %I:%M %p on %A, %B %d")
-    dateTxt = "aoss swift \"<prosody rate='-0.3'>" + timeStr + "\""
+    dateTxt = "aoss swift \"<prosody rate='-0.3'>" + timeStr + "<break time='2s' />" + getProcMsg() + "\""
     if debugTalk:
-        print (dateTxt)
+        print (len(dateTxt), "  ", dateTxt)
+    if len(dateTxt) > 90 :
+        lightCount = 4
+    else:
+        lightCount = 2
     if __name__ == "__main__":
-        ls = Process(target=lightShow, args=(2,))
+        ls = Process(target=lightShow, args=(lightCount,))
         ls.start()
         ps = Process(target=speak, args=(dateTxt,))
         ps.start()
@@ -417,7 +471,7 @@ def weatherDetails():
         with urllib.request.urlopen("https://geoip-db.com/json") as url:
             data = json.loads(url.read().decode())
             if debugTalk:
-                print(data)
+                print(len(data), "  ", data)
             city = data["city"]
             state = data["state"]
             postal = data["postal"]
@@ -452,7 +506,7 @@ def doWeather():
     if debug:
         print ("getting weather")
     if __name__ == "__main__":
-        ls = Process(target=lightShow, args=(3,))
+        ls = Process(target=lightShow, args=(4,))
         ls.start()
         ps = Process(target=weatherDetails)
         ps.start()
@@ -472,7 +526,7 @@ def quoteDetails():
         quoteTxt = ("aoss swift \"<prosody rate='-0.3'>" + quote +
                      "<break strength='strong' />" + author + "\"")
         if debugTalk:
-            print (quoteTxt)
+            print (len(quoteTxt), "  ", quoteTxt)
         speak(quoteTxt)
     else:
         informNoNetwork()
@@ -498,14 +552,14 @@ def originsDetails():
                     "<break strength='strong' />" +                    
                     "I feel much smarter now.\"")
     if debugTalk:
-        print (originsTxt)
+        print (len(originsTxt), "  ", originsTxt)
     speak(originsTxt)
                         
 def doOrigins():
     if debug:
         print ("getting origins")
     if __name__ == "__main__":
-        ls = Process(target=lightShow, args=(6,))
+        ls = Process(target=lightShow, args=(8,))
         ls.start()
         ps = Process(target=originsDetails)
         ps.start()
@@ -521,14 +575,26 @@ def doOrigins():
 ##################################################################################
 
 def wakeUp():
-    speak('aoss swift "I am version 2.00"')
+    speak('aoss swift "<prosody rate=\'-0.3\'>I am version 2.00"')
     ceyes.open()
-    ceyes.close()
-    headLight.update(32767, 32767, 32767)
-    brainLight.update(32767, 32767, 32767)
+    headLight.update(32767, 0, 0)
+    brainLight.update(32767, 0, 0)
     time.sleep(1)
     headLight.clear()
     brainLight.clear()
+    headLight.update(0, 32767, 0)
+    brainLight.update(0, 32767, 0)
+    time.sleep(1)
+    headLight.clear()
+    brainLight.clear()
+    headLight.update(0, 0, 32767)
+    brainLight.update(0, 0, 32767)
+    time.sleep(1)
+    headLight.clear()
+    brainLight.clear()
+    ceyes.close()
+    buildProcTables()
+    signal.signal(signal.SIGUSR1, receive_signal)
 
 ##################################################################################
 #
@@ -538,16 +604,24 @@ def wakeUp():
 
 
 if __name__ == '__main__':
+    global proc_file_change
     request = TouchButton(button, 1.5)
     ceyes = Eyes()
     headLight = Lamp(0)
     brainLight = Lamp(3)
     wakeUp()
-    pn = Process(target=doPubNub)
+    my_pid = str(os.getpid())
+    if debug:
+        print ("my pid is ",my_pid)
+    pn = Process(target=doPubNub, args=(my_pid, ))
     pn.start()
 
     try:  
         while True:
+            if proc_file_change:
+                print ("proc_file_change is True!")
+                updateProcTables()
+                proc_file_change = False
             code = request.read()
             if (code != 0):
                 if debug:
@@ -566,7 +640,7 @@ if __name__ == '__main__':
                     ceyes.clear()  
                     GPIO.cleanup() # this ensures a clean exit
                     os.system("shutdown now")
- 
+
     except KeyboardInterrupt:
         headLight.clear()
         brainLight.clear()

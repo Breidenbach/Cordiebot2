@@ -6,17 +6,16 @@
     <meta name="generator" content="BBEdit 12.6" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="Cbot_style.css">
-    <link >
     <link href="https://fonts.googleapis.com/css?family=Audiowide" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css?family=Cairo" rel="stylesheet">
-    <script type="text/javascript" src=keys.html></script>
+    <script type="text/javascript" src=keys.js></script>
 </head>
     
 <body>
 <div class="container">
     <h1>CordieBot communication</h1>
     <h3>Enter data for changing proclamation table.</h3>
-    <h3>Press SEND when ready.</h3>
+    <h3>Press the teal button when ready.</h3>
     <br>
     <fieldset class="section">
         <legend>Action</legend>
@@ -68,6 +67,7 @@
                 <label for="content" id="message_id_label">Message ID</label>
                 <input type="text" id="message_id" name="Message-ID" onfocusout="checkMessageID()">
             </div>
+            <br>
         </div>
     <fieldset class="section" id="itemchoice_label">
         <legend>When will this message be used?</legend>
@@ -91,30 +91,37 @@
         </div>
     </fieldset>
     <div class="contact">
-        <div class="form-flex">
-           <div class="input">
+        <div class="table">
+           <div class="table-cell">
                 <label for="year" id="year_label">Effective Date (yyyy)</label>
                 <input type="text" id="year" name="Active Date year" onfocusout="checkYear()">
             </div>
-           <div class="input">
+           <div class="table-cell">
                 <label for="month" id="month_label">(mm)</label>
                 <input type="text" id="month" name="Active Date month" onfocusout="checkDate()">
             </div>
-           <div class="input">
+           <div class="table-cell">
                 <label for="day" id="day_label">(dd)</label>
                 <input type="text" id="day" name="Active Date day" onfocusout="checkDate()">
             </div>
         </div>
+        <br>
         <div class="form-flex">
             <div class="input">
                 <label for="content" id="content_label">Message</label>
                 <input type="text" id="content" name="Content" onfocusout="checkMessageContent()">
             </div>
         </div>
+        <br>
     </div>
-    <button id=button class="button">SEND</button>
-    
-    <h3>Chat Output</h3>
+    <div class="contact">
+        <div class="form-flex">
+            <button id=button class="button">SEND</button>
+            <rspns id="result" ></rspns>
+        </div>
+    </div>
+    <br>
+    <h3 style="text-align: left">Chat Output</h3>
 
     <div><input id=input  /></div>
 
@@ -129,15 +136,17 @@
             const ANY_TIME = 3;         //  dateSelection for any time
         actionSelection = 1;  // This value should be the same as the enabled item in
                               //the fieldset radiobox definitions.
-            const ADD_ENTRY = 1;        //  add an entry
-            const CHANGE_ENTRY = 2;     //  change a specific entry
-            const DELETE_ENTRY = 3;     //  delete a specific entry     
-            const RETRIEVE_ENTRY = 4;   //  retrieve an entry by id
-            const RETRIEVE_DATE = 5;    //  retrieve an entry by month & day
-            const RETRIEVE_ALL = 6;     //  retrieve all entries
-            const RESEQUENCE = 7;       //  resequence entries, giving them sequential
-                                        //      ID values.
-                                         
+            const ADD_ENTRY = 1;            //  add an entry
+            const CHANGE_ENTRY = 2;         //  change a specific entry
+            const DELETE_ENTRY = 3;         //  delete a specific entry     
+            const RETRIEVE_ENTRY = 4;       //  retrieve an entry by id
+            const RETRIEVE_DATE = 5;        //  retrieve an entry by month & day
+            const RETRIEVE_ALL = 6;         //  retrieve all entries
+            const RESEQUENCE = 7;           //  resequence entries, giving them sequential
+                                            //      ID values.
+            const RETRIEVE_DATE_NEXT = 8;   //  retrieve next entry when retrieving by date
+            const RETRIEVE_ALL_NEXT = 9;    //  retrieve next entry when retrieving all
+                                        
         handleActionChoice(ADD_ENTRY);
         
         function handleItemChoice(num) {
@@ -172,14 +181,25 @@
                     colorEnableFieldset("itemchoice_label");
                     handleItemChoice(dateSelection)
                     enableEntry("content");
+                    button.innerHTML = "Add"
                     break;
                 case CHANGE_ENTRY:  //  change message
                     enableEntry("message_id");
                     colorEnableFieldset("itemchoice_label");
                     handleItemChoice(dateSelection)
                     enableEntry("content");
+                    button.innerHTML = "Change"
                     break;
                 case DELETE_ENTRY:  //  delete message
+                    enableEntry("message_id");
+                    message_id.focus();
+                    colorDisableFieldset("itemchoice_label");
+                    disableEntry("content");
+                    disableEntry("year");
+                    disableEntry("month");
+                    disableEntry("day");
+                    button.innerHTML = "Delete"
+                    break;
                 case RETRIEVE_ENTRY: //   retrieve one message
                     enableEntry("message_id");
                     message_id.focus();
@@ -188,6 +208,7 @@
                     disableEntry("year");
                     disableEntry("month");
                     disableEntry("day");
+                    button.innerHTML = "Retrieve"
                     break;
                 case RETRIEVE_DATE:  //  retrieve message by date
                     disableEntry("message_id");
@@ -196,8 +217,17 @@
                     disableEntry("year");
                     enableEntry("month");
                     enableEntry("day");
+                    button.innerHTML = "Retrieve by Date"
                     break;
                 case RETRIEVE_ALL:  //  retrieve all messages
+                    disableEntry("message_id");
+                    colorDisableFieldset("itemchoice_label");
+                    disableEntry("content");
+                    disableEntry("year");
+                    disableEntry("month");
+                    disableEntry("day");
+                    button.innerHTML = "Retrieve All"
+                    break;
                 case RESEQUENCE:  //  resequence messages
                     disableEntry("message_id");
                     colorDisableFieldset("itemchoice_label");
@@ -205,6 +235,7 @@
                     disableEntry("year");
                     disableEntry("month");
                     disableEntry("day");
+                    button.innerHTML = "Resequence"
                     break;
                 default:
             }
@@ -450,6 +481,7 @@
             message: function(obj) {
                 rspns = '' + obj.message;
                 console.log("obj.message = ", rspns);
+                console.log("rspns includes End  ", rspns.includes("End"))
                 split = rspns.indexOf('{');
                 console.log('split = ', split);
                 if (split > -1) {
@@ -459,19 +491,74 @@
                     console.log('info = ', info);
                     qinfo = info.replace(/\'/g, '"');
                     console.log(qinfo);
-                    if ((''+obj.message).includes("retrieve") || 
-                                (''+obj.message).includes("add")) {
+                    switch (actionSelection) {
+                        case ADD_ENTRY:
+                            result.innerHTML = "Message added.";
+                            break;
+                        case CHANGE_ENTRY:
+                            result.innerHTML = "Message changed.";
+                            break;
+                        case DELETE_ENTRY:
+                            result.innerHTML = "Message deleted.";
+                            break;
+                        case RETRIEVE_ENTRY:
+                        case RETRIEVE_DATE:
+                        case RETRIEVE_ALL:
+                            result.innerHTML = "Message retrieved.";
+                            break;
+                        case RESEQUENCE:
+                            result.innerHTML = "Messages resequenced.";
+                            break;
+                        default:
+                            result.innerHTML = "";
+                    }
+                    if (rspns.includes("not found")) {
+                        button.innerHTML = info;
+                    }
+                    if (actionSelection == ADD_ENTRY ||
+                                 actionSelection == RETRIEVE_ENTRY ||
+                                 actionSelection == RETRIEVE_ALL ||
+                                 actionSelection == RETRIEVE_ALL_NEXT ||
+                                 actionSelection == RETRIEVE_DATE ||
+                                 actionSelection == RETRIEVE_DATE_NEXT  ) {
                         pdata = JSON.parse(qinfo);
                         setData("content",pdata['message']);
                         setData("year",pdata['year']);
                         setData("month",pdata['month']);
                         setData("day",pdata['day']);
                         setData("message_id",pdata['ID']);
+                        if (actionSelection == RETRIEVE_ALL) {
+                            actionSelection = RETRIEVE_ALL_NEXT; 
+                            console.log("retrieve all -> retrieve all next");
+                            button.innerHTML = "Retrieve Next";
+                        } else {
+                        if (actionSelection == RETRIEVE_DATE) {
+                            actionSelection = RETRIEVE_DATE_NEXT; 
+                            console.log("retrieve by date -> retrieve by date next");
+                            button.innerHTML = "Retrieve Next";
+                        }}
                         box.innerHTML = resps_action + box.innerHTML;
                     } else {
+                        console.log("inner else");
                         box.innerHTML = rspns + box.innerHTML;
                     }
                 } else {
+                    console.log("outer else")
+                    result.innerHTML = "";
+                    if ((actionSelection == RETRIEVE_ALL_NEXT) && 
+                            rspns.includes("End")) {
+                        actionSelection = RETRIEVE_ALL;
+                        result.innerHTML = "End of messages."
+                        console.log("retrieve all next -> retrieve all");
+                        button.innerHTML = "Retrieve All";
+                    } else {
+                    if ((actionSelection == RETRIEVE_DATE_NEXT) && 
+                            rspns.includes("End")) {
+                        actionSelection = RETRIEVE_DATE;
+                        result.innerHTML = "End of messages."
+                        console.log("retrieve by date next -> retrieve by date");
+                        button.innerHTML = "Retrieve by Date";
+                    }}
                     box.innerHTML = (''+obj.message).replace( /[<>]/g, '' ) + '<br>' + box.innerHTML;
                 }
               }});

@@ -9,6 +9,9 @@ from pubnub.enums import PNStatusCategory
 from pubnub.pnconfiguration import PNConfiguration
 from pubnub.pubnub import PubNub
 import json
+import sys
+import os
+import signal
  
 ##################################################################################
 #
@@ -23,6 +26,7 @@ class manage_p_file:
     def __init__(self):
         with open("proclamations.txt") as self.p_file:  
             self.p_data = json.load(self.p_file)
+        self.r_index = 0
     def add(self, message):
         newID = 0
         for p in self.p_data['p_msg']:
@@ -68,17 +72,63 @@ class manage_p_file:
                 r_data = p
                 break
         return r_data
-    def get_next(self, message):
-        pass
     def get_by_date(self, message):
-        return ("get by date not implimented.")
+        self.r_index = 0
+        r_data = " End of messages for " + (message['month']) + "/" + (message['day'])
+        for i, p in enumerate(self.p_data['p_msg']):
+            if (p['month'].isdigit() and p['day'].isdigit()):
+                if ((int(p['month']) == int(message['month'])) and
+                         (int(p['day']) == int(message['day']))):
+                    self.r_index = i
+                    print (self.p_data['p_msg'][i])
+                    r_data = self.p_data['p_msg'][i]
+                    break
+        return r_data   
     def get_next_by_date(self, message):
-        pass
-    def resequence():
+        r_data = " End of messages for " + (message['month']) + "/" + (message['day'])
+        for i, p in enumerate(self.p_data['p_msg']):
+            if (p['month'].isdigit() and p['day'].isdigit()):
+                if ((int(p['month']) == int(message['month'])) and
+                         (int(p['day']) == int(message['day'])) and
+                         (i > self.r_index)):
+                    self.r_index = i
+                    print (self.p_data['p_msg'][i])
+                    r_data = self.p_data['p_msg'][i]
+                    break
+        return r_data   
+    def get_all(self):
+        self.r_index = 0
+        print (self.p_data['p_msg'][0])
+        print ("lenght of messages = ", len(self.p_data['p_msg']))
+        return self.p_data['p_msg'][0]
+    def get_all_next(self):
+        self.r_index += 1
+        if (self.r_index >= len(self.p_data['p_msg'])):
+            return "End of messages."
+        else:
+            return self.p_data['p_msg'][self.r_index]
+    def resequence(self):
+        newID = 0
+        for p in self.p_data['p_msg']:
+            newID += 1
+            p['ID'] = str(newID)
         with open("proclamations.txt", 'w') as self.p_file:  
             json.dump(self.p_data, self.p_file)
-        return ("resequence not implimented.")
+        return (" Resequenced " + str(newID) + " messages.")
   
+##################################################################################
+#
+#     Let CordieBot know that the file was updated. 
+#
+##################################################################################
+
+def signalCordieBot():
+    if len(sys.argv) > 1:
+        parent_pid = int((sys.argv)[1])
+        os.kill(parent_pid, signal.SIGUSR1) 
+        print ("sending msg to CordieBot")
+        
+    
 ##################################################################################
 #
 #     Set up PubNub 
@@ -154,28 +204,33 @@ class MySubscribeCallback(SubscribeCallback):
             if message.message['action'] == 1:
                 print ("add message")
                 self.response = "Action = add.  " + str(p_file.add(message.message))
+                signalCordieBot()
             if message.message['action'] == 2:
                 print ("change message")
                 self.response = "Action = change.  " + str(p_file.change(message.message))
+                signalCordieBot()
             if message.message['action'] == 3:
                 print ("delete message")
                 self.response = "Action = delete.  " + str(p_file.delete(message.message))
+                signalCordieBot()
             if message.message['action'] == 4:
                 print ("get message")
-                rspns = "Action = retrieve.  " + str(p_file.get(message.message))
-                self.response = rspns
+                self.response = "Action = retrieve.  " + str(p_file.get(message.message))
             if message.message['action'] == 5:
-                self.response = "not implemented"
+                self.response = ("Action = get by date.  " + 
+                        str(p_file.get_by_date(message.message)))
             if message.message['action'] == 6:
-                self.response = "not implemented"
+                self.response = "Action = get all.  " + str(p_file.get_all())
             if message.message['action'] == 7:
+                self.response = "Action = resequence.  " + str(p_file.resequence())
+            if message.message['action'] == 8:
+                self.response = ("Action = get next by date.  " + 
+                        str(p_file.get_next_by_date(message.message)))
+            if message.message['action'] == 9:
+                self.response = "Action = get all next.  " + str(p_file.get_all_next())
+            if message.message['action'] > 9:
                 self.response = "not implemented"
-            if message.message['action'] > 7:
-                print ("invalid message")
-                self.response = "invalid action"
             pubnub.publish().channel(my_channel).message(self.response).pn_async(my_publish_callback)
- 
-
  
 pubnub.add_listener(MySubscribeCallback("hello!!"))
 pubnub.subscribe().channels(my_channel).execute()
