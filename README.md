@@ -28,6 +28,6 @@ FILES
 - cp_wpa_conf.sh: copies the wpa_supplicant.conf file from a USB drive to /etc/wpa_supplicant/
 - testUSBmounted.py: script to test finding a USB drive.
 - cbot_communication.html:  communicates from a host computer to the CordieBot to maintain the file of proclamations issued after the time and weather.
-- keys.html:  container for the CordieBot PubNub keyes used for communication to the CordieBot
+- keys.js:  container for the CordieBot PubNub keyes used for communication to the CordieBot
 - Cbot_style.css:  style definitions used by cbot_communication.html
 - pubnubpipe.py:  uses PubNub to communicate with the html app on home computer
