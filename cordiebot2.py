@@ -604,7 +604,7 @@ def wakeUp():
 
 
 if __name__ == '__main__':
-    global proc_file_change
+    proc_file_change = False
     request = TouchButton(button, 1.5)
     ceyes = Eyes()
     headLight = Lamp(0)
