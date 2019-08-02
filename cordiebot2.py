@@ -39,6 +39,10 @@ import feedparser
 import socket
 import subprocess
 import signal
+from gpiozero import MCP3002
+from gpiozero import DigitalOutputDevice
+from gpiozero import PWMOutputDevice
+from runningAverage import runningAverage
 
 ##################################################################################
 #
@@ -46,16 +50,9 @@ import signal
 #
 ##################################################################################
 
-debug = True            # to print various details
+debug = False            # to print various details
 debugLights = False     # help debugging light show
-debugTalk = True       # help debug speaking
-
-button = 25  # GPIO number of touch sensor
-#              LED board uses SPIMOSI and SPISCLK
-#              Sound output uses 18
-
-ampEnable = 21  # GPIO number to enable the amplifier board
-#                 when low, amp is disabled
+debugTalk = False       # help debug speaking
 
 # define how many increments to use for ramping in the lightShow routine
 rampVal = 64
@@ -70,11 +67,21 @@ GPIO.setmode(GPIO.BCM)
 
 # from blinkateest set up SPI communication port    
 spi = busio.SPI(board.SCLK, board.MOSI, board.MISO)  # from blinkateest
+#          LED board uses SPIMOSI and SPISCLK, MISO is not used but must be specified
 
 # Define the TLC59711 instance to communicate with lights
 leds = adafruit_tlc59711.TLC59711(spi)
 
-GPIO.setup(ampEnable, GPIO.OUT, initial=GPIO.LOW)
+ampEnable = DigitalOutputDevice(21)  # GPIO number to enable the amplifier board
+#                 when low, amp is disabled
+#    The board outputs random static when audio is not active.
+ampEnable.off()
+
+button = 25  # GPIO number of touch sensor
+
+fan = PWMOutputDevice(18)
+fan.value = 0   #   start out with fan off.
+
 
 ##################################################################################
 #
@@ -94,9 +101,9 @@ def speak(phrase):
     info('function speak')
     if debug:
         print (phrase)
-    GPIO.output(ampEnable, GPIO.HIGH)
+    ampEnable.on()
     os.system(phrase)
-    GPIO.output(ampEnable, GPIO.LOW)
+    ampEnable.off()
     
 def internet():
     return (os.system("ping -c 1 8.8.8.8") == 0)
@@ -119,7 +126,8 @@ def findCordiebotUSB():
     fh.close()
     return inLine
     
-noNetworkTxt = ("aoss swift \"<prosody rate='-0.3'>I don't appear to be connected to a why fi network.\"" )
+noNetworkTxt = ("aoss swift \"<prosody rate='-0.3'> " +
+                "I don't appear to be connected to a why fi network.\"" )
 
 def informNoNetwork():
     speak(noNetworkTxt)
@@ -139,8 +147,8 @@ cordiebot2_txt = ("aoss swift \"I have found a new cordee bot2 file. " +
 shutdown_txt =  ( "aoss swift \"I need to restart which will take several seconds." + 
                 "  Be sure to remove the USB drive while I am restarting.\"")
 
-checkNetworkTxt = ("aoss swift \" Check if your why fi is running. Check if anyone changed " +
-                "the password.  Otherwise, grampa might be able to help.\"")
+checkNetworkTxt = ("aoss swift \" Check if your why fi is running. Check if " +
+             "anyone changed the password.  Otherwise, grampa might be able to help.\"")
 
 def checkForConf(starting):
     CBLine = findCordiebotUSB()
@@ -193,8 +201,34 @@ def receive_signal(signum, stack):
     if signum == int(signal.SIGUSR1):
         proc_file_change = True
         if debug:
-            print ("received SIGUSR1 setting proc_file_change to " + str(proc_file_change))
+            print ("received SIGUSR1 setting proc_file_change to " +
+                         str(proc_file_change))
     return
+
+# set up average routine
+tAvg = runningAverage(17)
+
+def runFan():
+    pot = MCP3002(channel=0, device=1)
+    volts = pot.value * 3.3
+    # convert volts to degrees F,
+    # 0 to 1 volts = -56 to 156 degrees C, then convert to degrees F
+    temperature = pot.value * 629.64 - 68.8
+    avgTemp = tAvg.value(temperature)
+    if debug:
+        print("pot value = %2.3f   volts = %2.3f   temperature = %3.3f"
+                     % (pot.value, volts, avgTemp))
+    # Note that pwm value may range from 0 (fully off) to 1.0 (fully on)
+    if (avgTemp > 95):
+        if (avgTemp > 110):
+            fan.value = 1.0
+        else:
+            fan.value = 0.5
+    else:
+        fan.value = 0
+    return avgTemp
+
+
     
 ##################################################################################
 #
@@ -332,9 +366,11 @@ def buildProcTables():
     with open('proclamations.txt') as p_file:  
         p_data = json.load(p_file)
     mydate = date.today()
-    print( mydate.year, " / ", mydate.month, " / ", mydate.day)
+    if debug:
+        print( mydate.year, " / ", mydate.month, " / ", mydate.day)
     for p in p_data['p_msg']:
-        print (p)
+        if debug:
+            print (p)
         if p['year'].isdigit():
             if ((int(p['year']) == mydate.year) and
                  (int(p['month']) == mydate.month) and
@@ -401,12 +437,14 @@ def lightShow(count):
         brainDeltas[1] = brainLight.gvalues()
         brainDeltas[2] = brainLight.bvalues()
         if debug:
-            print ("ndx = ", ndx, "  Head Deltas = ", headDeltas, "  Brain Deltas = ", brainDeltas)    
+            print ("ndx = ", ndx, "  Head Deltas = ", headDeltas,
+                             "  Brain Deltas = ", brainDeltas)    
         ndx += 1
     headDeltas[:] = [-1*x/rampVal for x in headDeltas]
     brainDeltas[:] = [-1*x/rampVal for x in brainDeltas]
     if debugLights:
-        print ("after get increments  Head Deltas = ", headDeltas, "  Brain Deltas = ", brainDeltas)    
+        print ("after get increments  Head Deltas = ", headDeltas,
+                         "  Brain Deltas = ", brainDeltas)    
     for x in range(rampVal):
         headLight.update(headDeltas[0], headDeltas[1], headDeltas[2])
         brainLight.update(brainDeltas[0], brainDeltas[1], brainDeltas[2])
@@ -451,13 +489,14 @@ def getHue(hues):
 def doTime():
     date = datetime.now()
     timeStr = date.strftime("It is %I:%M %p on %A, %B %d")
-    dateTxt = "aoss swift \"<prosody rate='-0.3'>" + timeStr + "<break time='2s' />" + getProcMsg() + "\""
+    dateTxt = ("aoss swift \"<prosody rate='-0.3'>" + timeStr + "<break time='2s' />" +
+                        getProcMsg() + "\"")
     if debugTalk:
         print (len(dateTxt), "  ", dateTxt)
     if len(dateTxt) > 90 :
-        lightCount = 4
+        lightCount = 6
     else:
-        lightCount = 2
+        lightCount = 3
     if __name__ == "__main__":
         ls = Process(target=lightShow, args=(lightCount,))
         ls.start()
@@ -566,6 +605,10 @@ def doOrigins():
         ls.join()
         ps.join()
         
+def doInternalTemp(t):
+    txtinner = "my internal temperature is %3.1f" % t
+    txt = "aoss swift \"<prosody rate='-0.3'>" + txtinner + "\""
+    speak(txt)        
                 
  
 ##################################################################################
@@ -575,7 +618,11 @@ def doOrigins():
 ##################################################################################
 
 def wakeUp():
-    speak('aoss swift "<prosody rate=\'-0.3\'>I am version 2.00"')
+    if debug:
+        speak('aoss swift "<prosody rate=\'-0.3\'>I am version 2.00"')
+    
+    #  check lights
+    
     ceyes.open()
     headLight.update(32767, 0, 0)
     brainLight.update(32767, 0, 0)
@@ -593,8 +640,12 @@ def wakeUp():
     headLight.clear()
     brainLight.clear()
     ceyes.close()
+        
+    #  Proclamation file initialization
+    
     buildProcTables()
     signal.signal(signal.SIGUSR1, receive_signal)
+    
 
 ##################################################################################
 #
@@ -615,6 +666,7 @@ if __name__ == '__main__':
         print ("my pid is ",my_pid)
     pn = Process(target=doPubNub, args=(my_pid, ))
     pn.start()
+    insideTemp = 0
 
     try:  
         while True:
@@ -634,12 +686,15 @@ if __name__ == '__main__':
                     doQuote()
                 if (code == 8):
                     doOrigins()
+                if (code == 9):
+                    doInternalTemp(insideTemp)
                 if (code == 255):
                     headLight.clear()
                     brainLight.clear()
                     ceyes.clear()  
                     GPIO.cleanup() # this ensures a clean exit
                     os.system("shutdown now")
+            insideTemp = runFan()
 
     except KeyboardInterrupt:
         headLight.clear()
