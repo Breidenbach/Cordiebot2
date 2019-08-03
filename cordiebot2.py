@@ -191,8 +191,12 @@ def checkForConf(starting):
             os.system("shutdown -r now")
 
 def doPubNub(pid):
-    print ('python pubnubpipe.py ' + pid)
-    os.system('python pubnubpipe.py ' + pid)
+    if debug:
+        print ('python pubnubpipe.py ' + pid)
+    args = 'python' + ' pubnubpipe.py ' + str(pid)
+    pn_proc = subprocess.Popen(args, shell=True)
+    return pn_proc
+#        os.system('python pubnubpipe.py ' + pid)
 
 proc_file_change = False
 
@@ -664,8 +668,7 @@ if __name__ == '__main__':
     my_pid = str(os.getpid())
     if debug:
         print ("my pid is ",my_pid)
-    pn = Process(target=doPubNub, args=(my_pid, ))
-    pn.start()
+    pn_proc = doPubNub(my_pid)
     insideTemp = 0
 
     try:  
@@ -695,19 +698,25 @@ if __name__ == '__main__':
                     GPIO.cleanup() # this ensures a clean exit
                     os.system("shutdown now")
             insideTemp = runFan()
+            if (pn_proc.poll() != None):  #check if pubnub communication terminated
+                currentDT = datetime.now()
+                if currentDT.second == 0:
+                    pn_proc = doPubNub(my_pid)
 
     except KeyboardInterrupt:
         headLight.clear()
         brainLight.clear()
         ceyes.clear()  
-        GPIO.cleanup()       # clean up GPIO on CTRL+C exit  
+        GPIO.cleanup()      # clean up GPIO on CTRL+C exit  
+#        pn_proc.kill()      # stop pubnub communication          
     
 
     headLight.clear()
     brainLight.clear()
     ceyes.clear()  
-    GPIO.cleanup() # this ensures a clean exit
-    pn.join()                
+    GPIO.cleanup()      # this ensures a clean exit
+#    pn_proc.kill()      # stop pubnub communication            
   
-    print ("goodbye")
+    if debug:
+        print ("goodbye")
 
