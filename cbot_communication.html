@@ -15,7 +15,8 @@
 <div class="container">
     <h1>CordieBot communication</h1>
     <h3>Enter data for changing proclamation table.</h3>
-    <h3>Press the teal button when ready.</h3>
+    <h3>Press the teal button when ready to act.</h3>
+    <h3>Press the yellow button to listen to the message.</h3>
     <br>
     <fieldset class="section">
         <legend>Action</legend>
@@ -117,6 +118,7 @@
     <div class="contact">
         <div class="form-flex">
             <button id=button class="button">SEND</button>
+            <button id=button2 class="button" style="background-color: #FFFF00" >LISTEN</button>
             <rspns id="result" ></rspns>
         </div>
     </div>
@@ -178,14 +180,14 @@
                     colorEnableFieldset("itemchoice_label");
                     handleItemChoice(dateSelection)
                     enableEntry("content");
-                    button.innerHTML = "Add"
+                    button.innerHTML = "ADD"
                     break;
                 case CHANGE_ENTRY:  //  change message
                     enableEntry("message_id");
                     colorEnableFieldset("itemchoice_label");
                     handleItemChoice(dateSelection)
                     enableEntry("content");
-                    button.innerHTML = "Change"
+                    button.innerHTML = "CHANGE"
                     break;
                 case DELETE_ENTRY:  //  delete message
                     enableEntry("message_id");
@@ -195,7 +197,7 @@
                     disableEntry("year");
                     disableEntry("month");
                     disableEntry("day");
-                    button.innerHTML = "Delete"
+                    button.innerHTML = "DELETE"
                     break;
                 case RETRIEVE_ENTRY: //   retrieve one message
                     enableEntry("message_id");
@@ -205,7 +207,7 @@
                     disableEntry("year");
                     disableEntry("month");
                     disableEntry("day");
-                    button.innerHTML = "Retrieve"
+                    button.innerHTML = "RETRIEVE"
                     break;
                 case RETRIEVE_DATE:  //  retrieve message by date
                     disableEntry("message_id");
@@ -214,7 +216,7 @@
                     disableEntry("year");
                     enableEntry("month");
                     enableEntry("day");
-                    button.innerHTML = "Retrieve by Date"
+                    button.innerHTML = "RETRIEVE by DATE"
                     break;
                 case RETRIEVE_ALL:  //  retrieve all messages
                     disableEntry("message_id");
@@ -223,7 +225,7 @@
                     disableEntry("year");
                     disableEntry("month");
                     disableEntry("day");
-                    button.innerHTML = "Retrieve All"
+                    button.innerHTML = "RETRIEVE ALL"
                     break;
                 case RESEQUENCE:  //  resequence messages
                     disableEntry("message_id");
@@ -232,7 +234,7 @@
                     disableEntry("year");
                     disableEntry("month");
                     disableEntry("day");
-                    button.innerHTML = "Resequence"
+                    button.innerHTML = "RESEQUENCE"
                     break;
                 default:
             }
@@ -474,6 +476,7 @@
         month.value = String(today.getMonth() + 1).padStart(2, '0'); //January is 0!
         year.value = today.getFullYear();
         var channel = 'cordiebot';
+        var talkChannel = 'cordietalk'
         pubnub.addListener({
             message: function(obj) {
                 rspns = '' + obj.message;
@@ -511,9 +514,6 @@
                         default:
                             result.innerHTML = "";
                     }
-                    if (rspns.includes("not found")) {
-                        button.innerHTML = info;
-                    }
                     if (actionSelection == ADD_ENTRY ||
                                  actionSelection == RETRIEVE_ENTRY ||
                                  actionSelection == RETRIEVE_ALL ||
@@ -529,12 +529,12 @@
                         if (actionSelection == RETRIEVE_ALL) {
                             actionSelection = RETRIEVE_ALL_NEXT; 
                             console.log("retrieve all -> retrieve all next");
-                            button.innerHTML = "Retrieve Next";
+                            button.innerHTML = "RETRIEVE NEXT";
                         } else {
                         if (actionSelection == RETRIEVE_DATE) {
                             actionSelection = RETRIEVE_DATE_NEXT; 
                             console.log("retrieve by date -> retrieve by date next");
-                            button.innerHTML = "Retrieve Next";
+                            button.innerHTML = "RETRIEVE NEXT";
                         }}
                     } else {
                         console.log("inner else");
@@ -556,19 +556,19 @@
                         actionSelection = RETRIEVE_ALL;
                         result.innerHTML = "End of messages."
                         console.log("retrieve all next -> retrieve all");
-                        button.innerHTML = "Retrieve All";
+                        button.innerHTML = "RETRIEVE ALL";
                     } else {
                     if ((actionSelection == RETRIEVE_DATE_NEXT) && 
                             rspns.includes("End")) {
                         actionSelection = RETRIEVE_DATE;
                         result.innerHTML = "End of messages."
                         console.log("retrieve by date next -> retrieve by date");
-                        button.innerHTML = "Retrieve by Date";
+                        button.innerHTML = "RETRIEVE by DATE";
                     }}
                     //box.innerHTML = (''+obj.message).replace( /[<>]/g, '' ) + '<br>' + box.innerHTML;
                 }
               }});
-            pubnub.subscribe({channels:[channel]});
+            pubnub.subscribe({channels:[channel,talkChannel]});
             button.addEventListener('click', function() {
                 //   console.log(checkVariables(actionSelection))
                 if (checkVariables(actionSelection)) {
@@ -580,7 +580,12 @@
                     jsonData.day = day.value;
                     jsonData.content = content.value;
                     pubnub.publish({channel : channel,message : jsonData,x });
-            }
+            }});
+            button2.addEventListener('click', function() {
+                //   console.log(checkVariables(actionSelection))
+                jsonData.content = content.value;
+                pubnub.publish({channel : talkChannel, message : jsonData,x });
+            
         });
     })();
     </script>
