@@ -33,3 +33,4 @@ FILES
 - Cbot_style.css:  style definitions used by cbot_communication.html
 - pubnubpipe.py:  uses PubNub to communicate with the html app on home computer
 - runningAverage.py:  package to calculate a running average over a number of instances.
+- cbotspeechtest.py:  can be run on a local Raspberry Pi so that messages may be listened to prior to sending to the CordieBot.
