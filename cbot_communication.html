@@ -121,9 +121,6 @@
         </div>
     </div>
     <br>
-    <h3 style="text-align: left">Chat Output</h3>
-
-    <div><input id=input  /></div>
 
     <div id=box></div>
     <script src=https://cdn.pubnub.com/sdk/javascript/pubnub.4.0.11.min.js></script>
@@ -505,9 +502,11 @@
                         case RETRIEVE_DATE:
                         case RETRIEVE_ALL:
                             result.innerHTML = "Message retrieved.";
+                            //  message not found from RETRIEVE processes
+                            //    is handled in "outer else"
                             break;
                         case RESEQUENCE:
-                            result.innerHTML = "Messages resequenced.";
+                            //  RESEQUENCE is handled in "outer else"
                             break;
                         default:
                             result.innerHTML = "";
@@ -537,14 +536,21 @@
                             console.log("retrieve by date -> retrieve by date next");
                             button.innerHTML = "Retrieve Next";
                         }}
-                        box.innerHTML = resps_action + box.innerHTML;
                     } else {
                         console.log("inner else");
-                        box.innerHTML = rspns + box.innerHTML;
                     }
                 } else {
                     console.log("outer else")
-                    result.innerHTML = "";
+                    if (rspns.includes("not found")) {
+                        result.innerHTML = rspns.substring(18);
+                        content.value = "";
+                    } else {
+                    if (rspns.includes("resequence")) {
+                        result.innerHTML = rspns.substring(21);
+                        content.value = "";
+                    } else {
+                        result.innerHTML = "";
+                    }}
                     if ((actionSelection == RETRIEVE_ALL_NEXT) && 
                             rspns.includes("End")) {
                         actionSelection = RETRIEVE_ALL;
@@ -559,7 +565,7 @@
                         console.log("retrieve by date next -> retrieve by date");
                         button.innerHTML = "Retrieve by Date";
                     }}
-                    box.innerHTML = (''+obj.message).replace( /[<>]/g, '' ) + '<br>' + box.innerHTML;
+                    //box.innerHTML = (''+obj.message).replace( /[<>]/g, '' ) + '<br>' + box.innerHTML;
                 }
               }});
             pubnub.subscribe({channels:[channel]});
@@ -573,7 +579,7 @@
                     jsonData.month = month.value;
                     jsonData.day = day.value;
                     jsonData.content = content.value;
-                    pubnub.publish({channel : channel,message : jsonData,x : (input.value='')});
+                    pubnub.publish({channel : channel,message : jsonData,x });
             }
         });
     })();
